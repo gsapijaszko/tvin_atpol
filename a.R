@@ -1,5 +1,5 @@
 get_all_data <- function(st = "") {
-  
+#  print(st)
   a <- list()
   
   dl_pos <- stringr::str_locate(st, "Dl:")
@@ -17,8 +17,8 @@ get_all_data <- function(st = "") {
   a$lon <- dl[[1]] + dl[[2]]/60 + dl[[3]]/60^2
   a$lat <- sz[[1]] + sz[[2]]/60 + sz[[3]]/60^2
   
-  sea <- c("ć", "ć", "Ĺ", "ĺ", "Ą", "ó", "×", "ź", "ż", "Ć", "ť", "ś", "Ź", "Ż")
-  rep <- c("ą", "ć", "ę", "ł", "ń", "ó", "ś", "ź", "ż", "Ć", "Ł", "Ś", "Ź", "Ż")
+  sea <- c("ś", "ć", "ć", "Ĺ", "ĺ", "Ą", "ó", "×", "Ž", "ž", "Ć", "ť", "Ź", "í")
+  rep <- c("Ś", "ą", "ć", "ę", "ł", "ń", "ó", "ś", "ź", "ż", "Ć", "Ł", "Ź", "Ż")
   names(rep) <- sea
   
   atpol_pos <- stringr::str_locate(st, "[A-Z]{2}[0-9]{2,}")
@@ -32,35 +32,46 @@ get_all_data <- function(st = "") {
   } else if(length(record_type_no[[1]]) == 1L) {
     if(grepl("^[A-Z][0-9]+", record_type_no[[1]][1]) &&  grepl("[0-9]$", record_type_no[[1]][1])) {
       a$record_type <- substr(record_type_no[[1]][1], 1, 1)
-      a$record_number <-substr(record_type_no[[1]][1], 2, nchar(record_type_no[[1]][1]))
+      a$record_number <- substr(record_type_no[[1]][1], 2, nchar(record_type_no[[1]][1])) |>
+        as.numeric()
     }
   } else {
     a$record_type <- NA
     a$record_number <- NA
   }
+
+  a$atpol_square <- substr(st, atpol_pos[[1]], atpol_pos[[2]])
   
-  st <- st |>
-    substr(atpol_pos[[1]], dl_pos-1) |>
-    strsplit(split = "(\\s){2,}") 
-  st
-  a$atpol_square <- st[[1]][1]
-  a$description <- st[[1]][2] |>
+  st <- trimws(substr(st, atpol_pos[[2]]+1, dl_pos[[1]]-1))
+
+  desc_pos <- stringr::str_locate(st, pattern = "(\\d)+(\\s){2}[A-Z]")
+
+  a$description <- trimws(substr(st, 1, desc_pos[[1]]-1)) |>
+    stringr::str_replace_all(pattern = "(\\s){1,}", replacement = " ") |>
     stringr::str_replace_all(pattern = rep) |>
     stringr::str_replace(pattern = "(\\,)$", replacement = "")
-  a$number_of_entries <- as.numeric(st[[1]][3])
-  a$author_name <- st[[1]][4] |>
-    stringr::str_replace_all(pattern = rep)
-  year <- st[[1]][5]
+  
+  year_pos <- stringr::str_locate(st, "(\\d){1,}$")
+  year <- substr(st, year_pos[[1]], year_pos[[2]])
   if(year == "0") {
-    a$date <- as.POSIXct(NA, "%Y%m%d")
-  } else {
-    a$date <- as.POSIXct(anytime::anydate(year), "%Y%m%d")
+    a$date <- as.POSIXct(NA, "%Y%m%d", origin = "1970-01-01 00:00:00 UTC")
+  } else if(nchar(year) == 4L) {
+    a$date <- as.POSIXct(paste0(year, "-01-02 00:00:00 UTC"), origin = "1970-01-01 00:00:00 UTC")
   }
+  
+  st <- trimws(substr(st, desc_pos[[1]], year_pos[[1]]-1))
+  number_pos <- stringr::str_locate(st, "^(\\d){1,}")
+
+  a$number_of_entries <- substr(st, number_pos[[1]], number_pos[[2]]) |>
+    as.numeric()
+  a$author_name <- trimws(substr(st, number_pos[[2]]+1, nchar(st))) |>
+    stringr::str_replace_all(pattern = "(\\s){1,}", replacement = " ") |>
+    stringr::str_replace_all(pattern = rep)
+
   return(a)
 }
 
-f <- "/home/sapi/80gb/Atpol/Wynikowe/0200.LOC"
-# f <- "/home/sapi/80gb/Atpol/Wynikowe/0042.LOC"
+f <- "/home/sapi/80gb/Atpol/Wynikowe/0224.LOC"
 
 header <- read.delim(file = f,
                      skip = 0,
@@ -85,7 +96,7 @@ t <- read.delim(file = f,
                 blank.lines.skip = FALSE,
                 header = FALSE)
 
-t
+# t
 
 b <- tibble::tibble(
   lon = numeric(),
@@ -96,29 +107,34 @@ b <- tibble::tibble(
   description = character(),
   number_of_entries = numeric(),
   author_name = character(),
-  date = as.POSIXct(NA, "%Y%m%d")
+  date = as.POSIXct(NA, "%Y%m%d", origin = "1970-01-01 00:00:00 UTC")
 )
 
 if(no_of_unique_atpol_squares > 0L) {
-  for (i in rev(seq_len(nrow(t)))) {
-    b <- get_all_data(st = t[i, ]) |>
-      rbind(b)
-  }
+  # for (i in rev(seq_len(nrow(t)))) {
+  #   b <- get_all_data(st = t[i, ]) |>
+  #     rbind(b)
+  # }
+  longlist <- lapply(seq_len(nrow(t)), function(i)  get_all_data(st = t[i, ]))
+  b <- do.call(rbind, longlist)
+  b <- b |> 
+    tibble::as_tibble() |>
+    dplyr::rowwise() |>
+    dplyr::mutate(date = as.POSIXct(date, origin = "1970-01-01 00:00:00 UTC")) |>
+    tidyr::unnest(cols = c(lon, lat, record_type, record_number, atpol_square, description, number_of_entries, author_name))
+  
   b$species <- species_name
 }
 
-
 b |>
-  dplyr::mutate(date = as.POSIXct(date, "%Y%m%d"))
+  dplyr::mutate(date = lubridate::year(date)) |>
+#  dplyr::arrange(date) |>
+  write.csv(file = gstools::format_file_name(species_name, extension = "csv"),
+            row.names = FALSE)
+  
+Śś
 
-substr(b$atpol_square, 1, 4) |>
-  unique()
-
-as.POSIXct(-220924800, "%Y%m%d")
-
-st <- t[181,]
-
-
+t[21:30,]
 # -----------------------------------------------------------------------------------------------------------------
 
 
