@@ -1,0 +1,10 @@
+---
+title: "Old data in 21 century"
+author: "Grzegorz Sapijaszko"
+format:
+  gfm: 
+    toc: false
+    output-file: readme.md
+---
+
+A couple of scripts to deal with a quite old (30+ years) data, made in DOS/Win 3.1 programs.
