@@ -25,7 +25,7 @@ get_all_data <- function(st = "") {
   
   record_type_no <- trimws(substr(st, 1, atpol_pos[[1]]-1))
   record_type_no <- strsplit(record_type_no, "(\\s)+")
-
+  
   if(length(record_type_no[[1]]) == 2L) {
     a$record_type <- record_type_no[[1]][1]
     a$record_number <- as.numeric(record_type_no[[1]][2])  
@@ -38,7 +38,7 @@ get_all_data <- function(st = "") {
     a$record_type <- NA
     a$record_number <- NA
   }
-
+  
   st <- st |>
     substr(atpol_pos[[1]], dl_pos-1) |>
     strsplit(split = "(\\s){2,}") 
@@ -59,15 +59,14 @@ get_all_data <- function(st = "") {
   return(a)
 }
 
-
 f <- "/home/sapi/80gb/Atpol/Wynikowe/0200.LOC"
 # f <- "/home/sapi/80gb/Atpol/Wynikowe/0042.LOC"
 
 header <- read.delim(file = f,
-           skip = 0,
-           nrows = 4,
-           blank.lines.skip = FALSE,
-           header = FALSE)
+                     skip = 0,
+                     nrows = 4,
+                     blank.lines.skip = FALSE,
+                     header = FALSE)
 if(ncol(header) != 1L) {
   warning("More than one column in header!")
 }
@@ -80,11 +79,11 @@ no_of_unique_atpol_squares <- sub(pattern = "Liczba kwadratow: ", replacement = 
   as.numeric()
 
 t <- read.delim(file = f,
-           skip = 4,
-           fileEncoding = "CP852",
-#           encoding = "UTF8",
-           blank.lines.skip = FALSE,
-           header = FALSE)
+                skip = 4,
+                fileEncoding = "CP852",
+                #           encoding = "UTF8",
+                blank.lines.skip = FALSE,
+                header = FALSE)
 
 t
 
@@ -105,10 +104,11 @@ if(no_of_unique_atpol_squares > 0L) {
     b <- get_all_data(st = t[i, ]) |>
       rbind(b)
   }
+  b$species <- species_name
 }
 
+
 b |>
-#  head() |>
   dplyr::mutate(date = as.POSIXct(date, "%Y%m%d"))
 
 substr(b$atpol_square, 1, 4) |>
@@ -144,8 +144,8 @@ species <- species |>
 plots <- read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVHABITA.DBF")
 
 plots$
-
-details <- read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVABUND.DBF")
+  
+  details <- read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVABUND.DBF")
 
 read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/REMARKS.DBF")
 
