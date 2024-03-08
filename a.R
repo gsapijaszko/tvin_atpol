@@ -1,140 +1,25 @@
-get_all_data <- function(st = "") {
-#  print(st)
-  a <- list()
-  
-  dl_pos <- stringr::str_locate(st, "Dl:")
-  dl <- substr(st, dl_pos[[1]], nchar(st))
-  sz_pos <- stringr::str_locate(dl, "Sz:")
-  sz <- trimws(substr(dl, sz_pos[[1]]+3, nchar(dl)))
-  dl <- trimws(substr(dl, 4, sz_pos[[1]]-1))
-  
-  dl <- strsplit(dl, split = "(\\s)+")[[1]] |>
-    as.numeric()
-  
-  sz <- strsplit(sz, split = "(\\s)+")[[1]] |>
-    as.numeric()
-  
-  a$lon <- dl[[1]] + dl[[2]]/60 + dl[[3]]/60^2
-  a$lat <- sz[[1]] + sz[[2]]/60 + sz[[3]]/60^2
-  
-  sea <- c("ś", "ć", "ć", "Ĺ", "ĺ", "Ą", "ó", "×", "Ž", "ž", "Ć", "ť", "Ź", "í")
-  rep <- c("Ś", "ą", "ć", "ę", "ł", "ń", "ó", "ś", "ź", "ż", "Ć", "Ł", "Ź", "Ż")
-  names(rep) <- sea
-  
-  atpol_pos <- stringr::str_locate(st, "[A-Z]{2}[0-9]{2,}")
-  
-  record_type_no <- trimws(substr(st, 1, atpol_pos[[1]]-1))
-  record_type_no <- strsplit(record_type_no, "(\\s)+")
-  
-  if(length(record_type_no[[1]]) == 2L) {
-    a$record_type <- record_type_no[[1]][1]
-    a$record_number <- as.numeric(record_type_no[[1]][2])  
-  } else if(length(record_type_no[[1]]) == 1L) {
-    if(grepl("^[A-Z][0-9]+", record_type_no[[1]][1]) &&  grepl("[0-9]$", record_type_no[[1]][1])) {
-      a$record_type <- substr(record_type_no[[1]][1], 1, 1)
-      a$record_number <- substr(record_type_no[[1]][1], 2, nchar(record_type_no[[1]][1])) |>
-        as.numeric()
-    }
-  } else {
-    a$record_type <- NA
-    a$record_number <- NA
+atpol_files <- list.files(path = "/home/sapi/80gb",
+                          pattern = "[0-9]{4}.LOC$",
+                          recursive = TRUE,
+                          full.names = TRUE)
+
+
+atpol_files
+
+for (j in seq_along(atpol_files)) {
+  x <- atpolR::extract_data_from_old_atpol(atpol_files[[j]])
+  if(!is.null(x)) {
+    x |>
+      dplyr::mutate(date = lubridate::year(date)) |>
+      dplyr::arrange(date) |>
+      write.csv(file = gstools::format_file_name(name = x[1,"species"][[1]], 
+                                                 dir = "data/atpol",
+                                                 extension = "csv"),
+                row.names = FALSE)
   }
-
-  a$atpol_square <- substr(st, atpol_pos[[1]], atpol_pos[[2]])
-  
-  st <- trimws(substr(st, atpol_pos[[2]]+1, dl_pos[[1]]-1))
-
-  desc_pos <- stringr::str_locate(st, pattern = "(\\d)+(\\s){2}[A-Z]")
-
-  a$description <- trimws(substr(st, 1, desc_pos[[1]]-1)) |>
-    stringr::str_replace_all(pattern = "(\\s){1,}", replacement = " ") |>
-    stringr::str_replace_all(pattern = rep) |>
-    stringr::str_replace(pattern = "(\\,)$", replacement = "")
-  
-  year_pos <- stringr::str_locate(st, "(\\d){1,}$")
-  year <- substr(st, year_pos[[1]], year_pos[[2]])
-  if(year == "0") {
-    a$date <- as.POSIXct(NA, "%Y%m%d", origin = "1970-01-01 00:00:00 UTC")
-  } else if(nchar(year) == 4L) {
-    a$date <- as.POSIXct(paste0(year, "-01-02 00:00:00 UTC"), origin = "1970-01-01 00:00:00 UTC")
-  }
-  
-  st <- trimws(substr(st, desc_pos[[1]], year_pos[[1]]-1))
-  number_pos <- stringr::str_locate(st, "^(\\d){1,}")
-
-  a$number_of_entries <- substr(st, number_pos[[1]], number_pos[[2]]) |>
-    as.numeric()
-  a$author_name <- trimws(substr(st, number_pos[[2]]+1, nchar(st))) |>
-    stringr::str_replace_all(pattern = "(\\s){1,}", replacement = " ") |>
-    stringr::str_replace_all(pattern = rep)
-
-  return(a)
 }
 
-f <- "/home/sapi/80gb/Atpol/Wynikowe/0224.LOC"
-
-header <- read.delim(file = f,
-                     skip = 0,
-                     nrows = 4,
-                     blank.lines.skip = FALSE,
-                     header = FALSE)
-if(ncol(header) != 1L) {
-  warning("More than one column in header!")
-}
-
-atpol_species_no <- sub(pattern = "Raport rekordow gatunku: ", replacement = "", header[1, 1]) |>
-  as.numeric()
-species_name <- header[2, 1] |>
-  as.character()
-no_of_unique_atpol_squares <- sub(pattern = "Liczba kwadratow: ", replacement = "", header[4,1]) |>
-  as.numeric()
-
-t <- read.delim(file = f,
-                skip = 4,
-                fileEncoding = "CP852",
-                #           encoding = "UTF8",
-                blank.lines.skip = FALSE,
-                header = FALSE)
-
-# t
-
-b <- tibble::tibble(
-  lon = numeric(),
-  lat = numeric(),
-  record_type = character(),
-  record_number = numeric(),
-  atpol_square = character(),
-  description = character(),
-  number_of_entries = numeric(),
-  author_name = character(),
-  date = as.POSIXct(NA, "%Y%m%d", origin = "1970-01-01 00:00:00 UTC")
-)
-
-if(no_of_unique_atpol_squares > 0L) {
-  # for (i in rev(seq_len(nrow(t)))) {
-  #   b <- get_all_data(st = t[i, ]) |>
-  #     rbind(b)
-  # }
-  longlist <- lapply(seq_len(nrow(t)), function(i)  get_all_data(st = t[i, ]))
-  b <- do.call(rbind, longlist)
-  b <- b |> 
-    tibble::as_tibble() |>
-    dplyr::rowwise() |>
-    dplyr::mutate(date = as.POSIXct(date, origin = "1970-01-01 00:00:00 UTC")) |>
-    tidyr::unnest(cols = c(lon, lat, record_type, record_number, atpol_square, description, number_of_entries, author_name))
-  
-  b$species <- species_name
-}
-
-b |>
-  dplyr::mutate(date = lubridate::year(date)) |>
-#  dplyr::arrange(date) |>
-  write.csv(file = gstools::format_file_name(species_name, extension = "csv"),
-            row.names = FALSE)
-  
-Śś
-
-t[21:30,]
+atpol_files
 # -----------------------------------------------------------------------------------------------------------------
 
 
@@ -294,4 +179,10 @@ function (db, tv_home, drop = TRUE, common.only = FALSE, verbose = TRUE,
 }
 
 
+# -------------------------------------------------------------------------------------------------------
+
+file <- "/home/sapi/80gb/Gnomon/Dane/CAUCALIS_DAUCOIDES_BAZA.GNM"
+con <- file(file, "rb")
+
+readBin(con, "character", 256*2-1)
 
