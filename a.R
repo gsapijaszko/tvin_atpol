@@ -20,10 +20,52 @@ for (j in seq_along(atpol_files)) {
 }
 
 atpol_files
-# -----------------------------------------------------------------------------------------------------------------
 
 
-library(vegdata)
+# old TURBOVEG ------------------------------------------------------------------------------------------
+
+turboveg_path <- "/home/sapi/80gb/TURBOVEG"
+
+list.dirs(path = turboveg_path)
+
+# Species list from FLORA dir
+
+old_species_list <- foreign::read.dbf(paste0(turboveg_path, "/FLORA/TVFLORA.DBF")) |>
+  subset(SYNONYM == FALSE)
+poland_species <- foreign::read.dbf("/home/sapi/.wine/drive_c/Turbowin/species/Poland/species.dbf") |>
+  subset(SYNONYM == FALSE)
+
+old_species_list |>
+#  head() |>
+  dplyr::left_join(poland_species, by = c("SPECIES_NR" = "OLDSPECNR")) |>
+  dplyr::mutate(abx = stringr::str_replace(as.character(ABBREVIAT.x), pattern = "ssp.", replacement = "subsp."),
+                aby = stringr::str_replace(as.character(ABBREVIAT.y), pattern = "ssp.", replacement = "subsp.")) |>
+  dplyr::mutate(abx = stringr::str_replace(abx, pattern = "v. ", replacement = "var. "),
+                aby = stringr::str_replace(aby, pattern = "v. ", replacement = "var. ")) |>
+  subset(abx != aby) |>
+  subset(select = c(abx, aby))
+
+# seems old species list ~ new species list for Poland
+
+
+list.files(path = paste0(turboveg_path, "/AGNEST1"))
+
+# releve headers
+foreign::read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVHABITA.DBF") |>
+  head()
+
+# releve - species
+
+foreign::read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVABUND.DBF") |>
+  subset(RELEVE_NR == 1840) |>
+#  dplyr::left_join(poland_species, by = c("SPECIES_NR" = "OLDSPECNR"))
+  dplyr::left_join(old_species_list, by = "SPECIES_NR")
+
+
+
+
+
+  library(vegdata)
 
 vegdata::tv.home()
 
@@ -33,9 +75,11 @@ vegdata::tax('Quercus robur')
 
 vegdata::tv.db()
 
-db <- "AGNEST1"
+db <- "alte_buchern"
 #nagłówki zdjęć 
-sites <- tv.site(db)
+# sites <- 
+  tv.site(db) |>
+    head()
 
 species <- read.dbf("/home/sapi/80gb/TURBOVEG/FLORA/TVFLORA.DBF")
 
