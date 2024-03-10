@@ -51,18 +51,17 @@ old_species_list |>
 list.files(path = paste0(turboveg_path, "/AGNEST1"))
 
 # releve headers
-foreign::read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVHABITA.DBF") |>
+foreign::read.dbf("/home/sapi/80gb/TURBOVEG/EWELINA2/TVHABITA.DBF") |>
   head()
 
 # releve - species
 
-foreign::read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVABUND.DBF") |>
-  subset(RELEVE_NR == 1840) |>
-#  dplyr::left_join(poland_species, by = c("SPECIES_NR" = "OLDSPECNR"))
+foreign::read.dbf("/home/sapi/80gb/TURBOVEG/EWELINA2/TVABUND.DBF") |>
+  #  dplyr::left_join(poland_species, by = c("SPECIES_NR" = "OLDSPECNR"))
   dplyr::left_join(old_species_list, by = "SPECIES_NR")
 
 
-
+foreign::read.dbf()
 
 
   library(vegdata)
