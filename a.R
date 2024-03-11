@@ -1,3 +1,7 @@
+list.files(path = "/media/sapi/NOWY/Stfora/z_firewalla",
+           pattern = "[0-9]{4}.LOC$",
+           recursive = TRUE)
+
 atpol_files <- list.files(path = "/home/sapi/80gb",
                           pattern = "[0-9]{4}.LOC$",
                           recursive = TRUE,
@@ -64,7 +68,7 @@ foreign::read.dbf("/home/sapi/80gb/TURBOVEG/EWELINA2/TVABUND.DBF") |>
 foreign::read.dbf()
 
 
-  library(vegdata)
+library(vegdata)
 
 vegdata::tv.home()
 
@@ -74,24 +78,58 @@ vegdata::tax('Quercus robur')
 
 vegdata::tv.db()
 
-db <- "alte_buchern"
+db <- "kliczkow"
 #nagłówki zdjęć 
-# sites <- 
-  tv.site(db) |>
-    head()
-
+k <- tv.site(db)
+o <- tv.obs(db)
+o |>
+  class()
+  
 species <- read.dbf("/home/sapi/80gb/TURBOVEG/FLORA/TVFLORA.DBF")
 
 species <- species |>
   dplyr::distinct(SPECIES_NR, .keep_all = TRUE)
 
-plots <- read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVHABITA.DBF")
+site <- read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVHABITA.DBF")
 
-plots$
+names(site) <- names(site) |>
+  vegdata::TCS.replace()
+
+details <- read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVABUND.DBF")
   
-  details <- read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/TVABUND.DBF")
+names(details) <- names(details) |>
+  vegdata::TCS.replace()
+  
+remarks <- read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/REMARKS.DBF")
 
-read.dbf("/home/sapi/80gb/TURBOVEG/AGNEST1/REMARKS.DBF")
+names(remarks) <- names(remarks) |>
+  vegdata::TCS.replace()
+
+remarks <- remarks |> 
+  aggregate(REMARKS ~ PlotObservationID, paste, collapse = "")
+
+site <- site |>
+  dplyr::left_join(remarks, by = "PlotObservationID") |>
+  dplyr::mutate(REMARKS = paste0(REMARKS.x, REMARKS.y)) |>
+  subset(select = -c(REMARKS.x, REMARKS.y))
+
+site |>
+  subset(PlotObservationID == 2080)
+
+class(details) <- c("tv.obs", "data.frame")
+vegdata::tv.write(details, site, name = "dupa", overwrite = TRUE)
+
+foreign::read.dbf("/home/sapi/Public/dupa/tvhabita.dbf")
+
+
+merge(remarks,
+      setNames(
+        aggregate(REMARKS ~ RELEVE_NR, remarks, paste, collapse = ""),
+        c("RELEVE_NR", "REMARKS")
+      ),
+      by = c("RELEVE_NR")) |>
+
+
 
 plots |>
   dplyr::left_join(details, by = "RELEVE_NR") |>
